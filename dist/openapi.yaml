@@ -1,0 +1,243 @@
+openapi: 3.0.0
+info:
+  title: Payment API
+  version: 1.0.0
+  description: API for handling payments, processing, and refunds.
+servers:
+  - url: http://localhost:3001/api
+paths:
+  /payments:
+    post:
+      summary: Create a payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: integer
+                  example: 1
+                payment_method_name:
+                  type: string
+                  example: 'credit card'
+                amount:
+                  type: number
+                  example: 100.0
+                paymentType:
+                  type: string
+                  example: 'online'
+      responses:
+        '201':
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  user_id:
+                    type: integer
+                  payment_method_id:
+                    type: integer
+                  amount:
+                    type: number
+                  status:
+                    type: string
+                  created_at:
+                    type: string
+                    format: date-time
+        '400':
+          description: Invalid user ID or payment method name
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '500':
+          description: Server error
+          content:
+            text/plain:
+              schema:
+                type: string
+  /payments/process/{id}:
+    put:
+      summary: Process a payment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Payment processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  user_id:
+                    type: integer
+                  payment_method_id:
+                    type: integer
+                  amount:
+                    type: number
+                  status:
+                    type: string
+                  processed_at:
+                    type: string
+                    format: date-time
+        '500':
+          description: Processing error
+          content:
+            text/plain:
+              schema:
+                type: string
+  /payments/status/{id}:
+    get:
+      summary: Retrieve payment status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Payment status retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+        '500':
+          description: Error retrieving status
+          content:
+            text/plain:
+              schema:
+                type: string
+  /payments/a/refund/{id}:
+    put:
+      summary: Handle a refund
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Refund processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transaction:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      user_id:
+                        type: integer
+                      payment_method_id:
+                        type: integer
+                      amount:
+                        type: number
+                      status:
+                        type: string
+                  refund:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      transaction_id:
+                        type: integer
+                      amount:
+                        type: number
+                      reason:
+                        type: string
+                      created_at:
+                        type: string
+                        format: date-time
+        '500':
+          description: Error processing refund
+          content:
+            text/plain:
+              schema:
+                type: string
+components:
+  schemas:
+    Payment:
+      type: object
+      properties:
+        userId:
+          type: integer
+          example: 1
+        payment_method_name:
+          type: string
+          example: 'credit_card'
+        amount:
+          type: number
+          example: 100.0
+        paymentType:
+          type: string
+          example: 'online'
+    ProcessedPayment:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        payment_method_id:
+          type: integer
+        amount:
+          type: number
+        status:
+          type: string
+        processed_at:
+          type: string
+          format: date-time
+    Refund:
+      type: object
+      properties:
+        transaction:
+          type: object
+          properties:
+            id:
+              type: integer
+            user_id:
+              type: integer
+            payment_method_id:
+              type: integer
+            amount:
+              type: number
+            status:
+              type: string
+        refund:
+          type: object
+          properties:
+            id:
+              type: integer
+            transaction_id:
+              type: integer
+            amount:
+              type: number
+            reason:
+              type: string
+            created_at:
+              type: string
+              format: date-time

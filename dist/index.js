@@ -16,40 +16,55 @@ const express_1 = __importDefault(require("express"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const cors_1 = __importDefault(require("cors"));
 const request_1 = __importDefault(require("request"));
-dotenv_1.default.config();
 const express_session_1 = __importDefault(require("express-session"));
-const cron = require("node-cron");
+const node_cron_1 = __importDefault(require("node-cron"));
+const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
+const yamljs_1 = __importDefault(require("yamljs"));
+const path_1 = __importDefault(require("path"));
+const db_1 = require("./database/db");
+const paymentRoutes_1 = require("./routes/paymentRoutes");
+dotenv_1.default.config();
 const app = (0, express_1.default)();
+// Load Swagger document
+const swaggerDocument = yamljs_1.default.load(path_1.default.join(__dirname, 'openapi.yaml'));
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
 app.use((0, cors_1.default)());
+// Configure session
 app.use((0, express_session_1.default)({
     secret: 'your-secret-key',
     resave: true,
     saveUninitialized: true,
 }));
+// Define routes
 app.get('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        db_1.client.query("SELECT 1;");
+        yield db_1.client.query("SELECT 1;");
         res.status(200).send("Hello");
     }
     catch (err) {
         console.log(err);
+        res.status(500).send("Error");
     }
 }));
-const paymentRoutes = require("./routes/paymentRoutes");
-const db_1 = require("./database/db");
-app.use('/api', paymentRoutes);
+app.use('/api', paymentRoutes_1.paymentRouter);
+// Swagger setup
+app.use('/docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swaggerDocument));
 const port = process.env.PORT || 3001;
 app.listen(port, () => {
-    console.log(`server is running ${port}`);
+    console.log(`Server is running on port ${port}`);
 });
-cron.schedule("*/5 * * * *", () => {
+// Schedule cron job
+node_cron_1.default.schedule("*/5 * * * *", () => {
     console.log("Sending scheduled request at", new Date().toLocaleDateString(), "at", `${new Date().getHours()}:${new Date().getMinutes()}`);
     (0, request_1.default)(`${process.env.SELF_URL}`, function (error, response) {
         if (!error && response.statusCode == 200) {
-            console.log("im okay");
-            // console.log(body) // Optionally, log the response body
+            console.log("I'm okay");
+            // Optionally, log the response body
+            // console.log(body);
+        }
+        else {
+            console.log("Error in scheduled request:", error);
         }
     });
 });

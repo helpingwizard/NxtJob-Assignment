@@ -1,34 +1,63 @@
 import { client } from "../database/db";
 import express, { Request, Response, RequestHandler } from "express";
-const router = express.Router();
 
 // Create a payment
 export const createPayment = async (req: Request, res: Response) => {
-    const { userId, amount, paymentType } = req.body;
+    const { userId, payment_method_name, amount, paymentType } = req.body;
+
     try {
-        const newPayment = await client.query(
-            'INSERT INTO transactions (user_id, amount, payment_type, status) VALUES ($1, $2, $3, $4) RETURNING *',
-            [userId, amount, paymentType, 'pending']
+        console.log('Received request:', req.body);
+
+        // Fetch the payment_method_id from the payment_methods table
+        const paymentMethodResult = await client.query(
+            'SELECT id FROM payment_methods WHERE type = $1',
+            [payment_method_name]
         );
-        res.status(201).json(newPayment.rows[0]);
+        console.log('Payment method result:', paymentMethodResult.rows);
+
+        // Check if user exists
+        const userResult = await client.query(
+            'SELECT id FROM users WHERE id = $1',
+            [userId]
+        );
+        console.log('User result:', userResult.rows);
+
+        if (userResult.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid user ID' });
+        }
+
+        if (paymentMethodResult.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid payment method name' });
+        }
+
+        const payment_method_id = paymentMethodResult.rows[0].id;
+
+        // Insert the new payment into the transactions table
+        const newPaymentResult = await client.query(
+            'INSERT INTO transactions (user_id, payment_method_id, amount, status, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [userId, payment_method_id, amount, 'pending', new Date()]
+        );
+        console.log('New payment result:', newPaymentResult.rows);
+
+        res.status(201).json(newPaymentResult.rows[0]);
     } catch (err) {
-        console.error(err);
+        console.error('Error inserting payment:', err);
         res.status(500).send('Server error');
     }
 };
 
 // Process a payment
-export const processPayment1 = async (req: Request, res: Response) => {
+export const processPayment = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
         const result = await client.query(
-            'UPDATE transactions SET status = $1 WHERE id = $2 RETURNING *',
-            ['processed', id]  // Assuming you're directly updating the status to 'processed'
+            'UPDATE transactions SET status = $1, processed_at = $2 WHERE id = $3 RETURNING *',
+            ['processed', new Date(), id]  // Assuming you're directly updating the status to 'processed'
         );
         res.status(200).json(result.rows[0]);
     } catch (err) {
         console.error(err);
-        res.status(500).send('Processing error');
+        res.status(500).send('ProcessingSending scheduled request at 7/16/2024 at 21:10 error');
     }
 };
 
@@ -48,7 +77,7 @@ export const paymentStatus = async (req: Request, res: Response) => {
 };
 
 // Handle a refund
-export const refund = async (req: Request, res: Response) => {
+export const paymentRefund = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
         const updatedPayment = await client.query(
@@ -56,6 +85,14 @@ export const refund = async (req: Request, res: Response) => {
             ['refunded', id]
         );
         res.status(200).json(updatedPayment.rows[0]);
+
+        // Insert into refunds table
+        const refundResult = await client.query(
+            'INSERT INTO refunds (transaction_id, amount, reason, created_at) VALUES ($1, $2, $3, $4) RETURNING *',
+            [id, updatedPayment.rows[0].amount, 'Refund issued', new Date()]
+        );
+
+        res.status(200).json({ transaction: updatedPayment.rows[0], refund: refundResult.rows[0] });
     } catch (err) {
         console.error(err);
         res.status(500).send('Error processing refund');

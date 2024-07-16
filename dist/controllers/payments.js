@@ -8,41 +8,52 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.refund = exports.paymentStatus = exports.processPayment1 = exports.createPayment = void 0;
+exports.paymentRefund = exports.paymentStatus = exports.processPayment = exports.createPayment = void 0;
 const db_1 = require("../database/db");
-const express_1 = __importDefault(require("express"));
-const router = express_1.default.Router();
 // Create a payment
 const createPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { userId, amount, paymentType } = req.body;
+    const { userId, payment_method_name, amount, paymentType } = req.body;
     try {
-        const newPayment = yield db_1.client.query('INSERT INTO transactions (user_id, amount, payment_type, status) VALUES ($1, $2, $3, $4) RETURNING *', [userId, amount, paymentType, 'pending']);
-        res.status(201).json(newPayment.rows[0]);
+        console.log('Received request:', req.body);
+        // Fetch the payment_method_id from the payment_methods table
+        const paymentMethodResult = yield db_1.client.query('SELECT id FROM payment_methods WHERE type = $1', [payment_method_name]);
+        console.log('Payment method result:', paymentMethodResult.rows);
+        // Check if user exists
+        const userResult = yield db_1.client.query('SELECT id FROM users WHERE id = $1', [userId]);
+        console.log('User result:', userResult.rows);
+        if (userResult.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid user ID' });
+        }
+        if (paymentMethodResult.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid payment method name' });
+        }
+        const payment_method_id = paymentMethodResult.rows[0].id;
+        // Insert the new payment into the transactions table
+        const newPaymentResult = yield db_1.client.query('INSERT INTO transactions (user_id, payment_method_id, amount, status, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING *', [userId, payment_method_id, amount, 'pending', new Date()]);
+        console.log('New payment result:', newPaymentResult.rows);
+        res.status(201).json(newPaymentResult.rows[0]);
     }
     catch (err) {
-        console.error(err);
+        console.error('Error inserting payment:', err);
         res.status(500).send('Server error');
     }
 });
 exports.createPayment = createPayment;
 // Process a payment
-const processPayment1 = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const processPayment = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {
-        const result = yield db_1.client.query('UPDATE transactions SET status = $1 WHERE id = $2 RETURNING *', ['processed', id] // Assuming you're directly updating the status to 'processed'
+        const result = yield db_1.client.query('UPDATE transactions SET status = $1, processed_at = $2 WHERE id = $3 RETURNING *', ['processed', new Date(), id] // Assuming you're directly updating the status to 'processed'
         );
         res.status(200).json(result.rows[0]);
     }
     catch (err) {
         console.error(err);
-        res.status(500).send('Processing error');
+        res.status(500).send('ProcessingSending scheduled request at 7/16/2024 at 21:10 error');
     }
 });
-exports.processPayment1 = processPayment1;
+exports.processPayment = processPayment;
 // Retrieve payment status
 const paymentStatus = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -57,15 +68,18 @@ const paymentStatus = (req, res) => __awaiter(void 0, void 0, void 0, function* 
 });
 exports.paymentStatus = paymentStatus;
 // Handle a refund
-const refund = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const paymentRefund = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {
         const updatedPayment = yield db_1.client.query('UPDATE transactions SET status = $1 WHERE id = $2 RETURNING *', ['refunded', id]);
         res.status(200).json(updatedPayment.rows[0]);
+        // Insert into refunds table
+        const refundResult = yield db_1.client.query('INSERT INTO refunds (transaction_id, amount, reason, created_at) VALUES ($1, $2, $3, $4) RETURNING *', [id, updatedPayment.rows[0].amount, 'Refund issued', new Date()]);
+        res.status(200).json({ transaction: updatedPayment.rows[0], refund: refundResult.rows[0] });
     }
     catch (err) {
         console.error(err);
         res.status(500).send('Error processing refund');
     }
 });
-exports.refund = refund;
+exports.paymentRefund = paymentRefund;
