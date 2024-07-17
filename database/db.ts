@@ -1,8 +1,9 @@
 import { config} from "dotenv";
 import { Pool, PoolConfig } from "pg";
 require('dotenv').config();
-// Ensure all required environment variables are defined
-const requiredEnvVars = ['DB_URL'];
+
+const DB_URL = "postgresql://helloworld_owner:LjIuT1ft7EaN@ep-lucky-boat-a5qz9lr0.us-east-2.aws.neon.tech/helloworld?sslmode=require"
+const requiredEnvVars = [DB_URL];
 requiredEnvVars.forEach(envVar => {
     if (!process.env[envVar]) {
         console.error(`Missing required environment variable: ${envVar}`);
