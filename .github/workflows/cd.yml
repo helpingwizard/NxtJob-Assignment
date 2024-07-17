@@ -17,9 +17,11 @@ jobs:
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       run: |
-        echo "$SSH_PRIVATE_KEY" > keyfile
+        echo "$SSH_PRIVATE_KEY" | tr -d '\r' > keyfile  # Ensure Unix line endings
         chmod 600 keyfile
         mkdir -p ~/.ssh
         cp known_hosts ~/.ssh/known_hosts
-        
-        ssh -t -i keyfile ubuntu@ec2-3-110-197-227.ap-south-1.compute.amazonaws.com "sudo bash ~/deploy.sh"
+
+        # Adding -v for verbose output to help debug SSH connection issues
+        ssh -tt -i keyfile -o StrictHostKeyChecking=no ubuntu@ec2-3-110-197-227.ap-south-1.compute.amazonaws.com "sudo bash ~/deploy.sh"
+      shell: /usr/bin/bash -e {0}
