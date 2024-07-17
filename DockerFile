@@ -1,0 +1,23 @@
+# Use a base image with Node.js pre-installed
+FROM node:20
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy package.json and package-lock.json (if exist) to the working directory
+COPY package*.json ./
+
+# Install Node.js dependencies including TypeScript and types
+RUN npm install
+
+# Copy TypeScript configuration and the rest of the application source code
+COPY . .
+
+# Compile TypeScript to JavaScript
+RUN npx tsc
+
+# Expose the port your application listens on
+EXPOSE 3006
+
+# Command to run your application using the compiled JavaScript
+CMD ["node", "dist/index.js"]
